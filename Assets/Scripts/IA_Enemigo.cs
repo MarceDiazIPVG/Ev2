@@ -5,7 +5,7 @@ using UnityEngine.AI;
 
 public class IA_Enemigo : MonoBehaviour
 {
-    public NavMeshAgent agenteNavegacion;
+   public NavMeshAgent agenteNavegacion;
     public Transform[] destinos;
     private int i = 0;
 
@@ -14,9 +14,9 @@ public class IA_Enemigo : MonoBehaviour
     private float distanciaJugador;
     public float distanciaMaxima = 10f;
 
-    private int cantidadDeToques = 0;
-    private bool estaRalentizado = false;
     private float velocidadOriginal;
+    private bool velocidadReducida = false;
+    public AudioSource audioSource;
 
     void Start()
     {
@@ -26,7 +26,27 @@ public class IA_Enemigo : MonoBehaviour
         }
 
         player = GameObject.FindGameObjectWithTag("Player");
-        velocidadOriginal = agenteNavegacion.speed;
+        
+        int dificultad = PlayerPrefs.GetInt("DificultadSeleccionada", 0);
+        float multiplicador = 1f;
+
+        switch (dificultad)
+        {
+            case 0:
+                multiplicador = 1f; // Fï¿½cil
+                break;
+            case 1:
+                multiplicador = 2f; // Medio
+                break;
+            case 2:
+                multiplicador = 3f; // Difï¿½cil
+                break;
+        }
+
+        // Aplicar velocidad ajustada por dificultad
+        velocidadOriginal = agenteNavegacion.speed * multiplicador;
+        agenteNavegacion.speed = velocidadOriginal;
+        audioSource = GetComponent<AudioSource>();
     }
 
     void Update()
@@ -49,7 +69,12 @@ public class IA_Enemigo : MonoBehaviour
     {
         if (destinos.Length == 0) return;
 
-        agenteNavegacion.SetDestination(destinos[i].position);
+        if (!agenteNavegacion.pathPending && agenteNavegacion.remainingDistance < 0.5f)
+        {
+            i = (i + 1) % destinos.Length;
+            agenteNavegacion.SetDestination(destinos[i].position);
+        }
+
 
         if (Vector3.Distance(transform.position, destinos[i].position) < 1f)
         {
@@ -57,36 +82,42 @@ public class IA_Enemigo : MonoBehaviour
         }
     }
 
-    void OnTriggerEnter(Collider otro)
+    void OnTriggerEnter(Collider other)
     {
-        if (otro.CompareTag("Player"))
+        if (other.CompareTag("Player"))
         {
-            cantidadDeToques++;
-
-            if (cantidadDeToques == 1)
+            if (audioSource != null)
             {
-                if (!estaRalentizado)
-                {
-                    StartCoroutine(RalentizarTemporalmente());
-                }
+                audioSource.Play();
             }
-            else if (cantidadDeToques >= 2)
-            {
-                // Aquí llamas a la función para perder la partida
-                Debug.Log("El jugador perdió por kamikaze");
-                // Por ejemplo: GameManager.Instance.GameOver("Perdiste por kamikaze");
 
-                Destroy(gameObject);
+            VidaPlayer playerLife = other.GetComponent<VidaPlayer>();
+
+            if (playerLife != null)
+            {
+                bool fueUltimoGolpe = playerLife.ReceiveHit();
+
+                if (fueUltimoGolpe)
+                {
+                    Destroy(gameObject);
+                }
+                else
+                {
+                    if (!velocidadReducida)
+                    {
+                        StartCoroutine(ReducirVelocidadTemporalmente());
+                    }
+                }
             }
         }
     }
 
-    IEnumerator RalentizarTemporalmente()
+    IEnumerator ReducirVelocidadTemporalmente()
     {
-        estaRalentizado = true;
-        agenteNavegacion.speed = velocidadOriginal * 0.5f;
+        velocidadReducida = true;
+        agenteNavegacion.speed *= 0.5f;
         yield return new WaitForSeconds(3f);
         agenteNavegacion.speed = velocidadOriginal;
-        estaRalentizado = false;
+        velocidadReducida = false;
     }
 }

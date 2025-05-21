@@ -35,6 +35,6 @@ public class Temporizador : MonoBehaviour
     public void VolverAlMenu()
     {
         Time.timeScale = 1f; // Restaurar el tiempo por si estaba pausado
-        SceneManager.LoadScene("MenuPrincipal"); // Cambia el nombre por el de tu escena de menú
+        SceneManager.LoadScene("MENU"); // Cambia el nombre por el de tu escena de menú
     }
 }
